@@ -93,7 +93,6 @@ public class Main {
 
 
 
-
             System.out.println(x.get(GRB.StringAttr.VarName)
                     + " " + x.get(GRB.DoubleAttr.X));
             System.out.println(y.get(GRB.StringAttr.VarName)
@@ -106,10 +105,6 @@ public class Main {
 
 
             System.out.println("Obj: " + model.get(GRB.DoubleAttr.ObjVal));
-
-
-
-
 
 
             // Dispose of model and environment
