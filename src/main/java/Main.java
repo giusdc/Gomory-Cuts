@@ -3,11 +3,26 @@ import org.apache.commons.math3.linear.LUDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 
+import java.io.FileNotFoundException;
+
 public class Main {
+
+    private static final String file = "C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-2.mis";
 
     public static void main(String[] args) {
 
+        PLController plController = null;
         try {
+            plController = new PLController();
+            plController.calculate(file);;
+        } catch (GRBException e) {
+            e.printStackTrace();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+
+        /*try {
             GRBEnv env = new GRBEnv("mip1.log");
             GRBModel model = new GRBModel(env);
 
@@ -114,7 +129,7 @@ public class Main {
         } catch (GRBException e) {
             System.out.println("Error code: " + e.getErrorCode() + ". " +
                     e.getMessage());
-        }
+        }*/
     }
 }
 
