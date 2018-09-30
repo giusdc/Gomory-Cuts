@@ -2,7 +2,7 @@ import org.apache.commons.math3.linear.RealMatrix;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import utils.FileImport;
-import utils.PLI;
+import entities.PLI;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;

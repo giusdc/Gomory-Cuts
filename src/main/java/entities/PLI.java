@@ -1,11 +1,10 @@
-package utils;
+package entities;
 
 
 
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.apache.commons.math3.linear.RealMatrix;
 

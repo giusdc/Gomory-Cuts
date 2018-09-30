@@ -1,7 +1,7 @@
 import gurobi.*;
 import org.apache.commons.math3.linear.RealMatrix;
 import utils.FileImport;
-import utils.PLI;
+import entities.PLI;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -15,11 +15,21 @@ public class PLController {
         grbEnv = new GRBEnv("pli.log");
     }
 
+    //create GUROBI Model given the coefficient matrix and the variables
     public GRBModel createModel(PLI pli) throws GRBException {
+
+        //create the model
         GRBModel model = new GRBModel(grbEnv);
+
+        //create the list of GUROBI model variables
         List<GRBVar> variables = createVariables(model, pli.getVariables());
+
+        //create the objective function
         createObjectiveFunction(model, variables);
+
+        //create all the constraint equations
         createConstraints(model, pli.getCoefficientMatrix(), variables);
+
         return model;
     }
 
@@ -91,6 +101,7 @@ public class PLController {
         }
     }
 
+    //compute the linear programming problem given the file 
     public void calculate(String file) throws FileNotFoundException, GRBException {
         FileImport fileImport = new FileImport(file);
         RealMatrix realMatrix = fileImport.populate();
