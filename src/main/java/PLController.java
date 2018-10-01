@@ -1,4 +1,5 @@
 import gurobi.*;
+import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import utils.FileImport;
 import entities.PLI;
@@ -101,11 +102,78 @@ public class PLController {
         }
     }
 
-    //compute the linear programming problem given the file 
+    public boolean checkIntegerSolution(GRBModel model) throws GRBException {
+        GRBVar[] variables = model.getVars();
+        double num = 0.0, floorNum = 0.0;
+        for (GRBVar v : variables) {
+            num = v.get(GRB.DoubleAttr.X);
+            floorNum = Math.floor(num);
+            if (num != floorNum) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public List<Integer> getBasisOrOutOfBasisIndexes(GRBModel model, RealMatrix matrix, boolean basis) throws GRBException {
+        List<Integer> list = new ArrayList<Integer>();
+        GRBVar[] variables = model.getVars();
+        if (basis) {
+            for (int i = 0; i < variables.length; i++) {
+                if (variables[i].get(GRB.DoubleAttr.X) != 0.0) {
+                    list.add(i);
+                }
+            }
+        } else {
+            for (int i = 0; i < variables.length; i++) {
+                if (variables[i].get(GRB.DoubleAttr.X) == 0.0) {
+                    list.add(i);
+                }
+            }
+        }
+        return list;
+    }
+
+    public List<GRBVar> getBasisOrOutOfBasisVars(GRBModel model, List<Integer> indexes, boolean basis) {
+        List<GRBVar> vars = new ArrayList<GRBVar>();
+        if(basis) {
+            //if fractionary vars
+        } else {
+            //all
+        }
+        return vars;
+    }
+
+    public RealMatrix[] getBasisAndOutOfBasisMatrix(GRBModel model, RealMatrix matrix, List<Integer> columnBasisIndexes, List<Integer> columnOutOfBasisIndexes) throws GRBException {
+        //first matrix: basis matrix
+        //second matrix: out of basis matrix
+        RealMatrix[] matrices = new RealMatrix[2];
+        int rows = matrix.getRowDimension();
+
+        double[] column;
+
+        matrices[0] = MatrixUtils.createRealMatrix(rows, columnBasisIndexes.size());
+        for (int i = 0; i < columnBasisIndexes.size(); i++) {
+            column = matrix.getColumn(i);
+            matrices[0].setColumn(i, column);
+        }
+
+        matrices[1] = MatrixUtils.createRealMatrix(rows, columnOutOfBasisIndexes.size());
+        for (int i = 0; i < columnOutOfBasisIndexes.size(); i++) {
+            column = matrix.getColumn(i);
+            matrices[1].setColumn(i, column);
+        }
+
+        return matrices;
+    }
+
+
+    //compute the linear programming problem given the file
     public void calculate(String file) throws FileNotFoundException, GRBException {
         FileImport fileImport = new FileImport(file);
-        RealMatrix realMatrix = fileImport.populate();
-        PLI pli = new PLI(realMatrix);
+        RealMatrix matrix = fileImport.populate();
+        RealMatrix[] matrices = null;
+        PLI pli = new PLI(matrix);
         GRBModel model = createModel(pli);
         model.update();
         model.write("debug.lp");
@@ -113,12 +181,46 @@ public class PLController {
         model.update();
         model.write("debug.sol");
 
-        GRBModel binaryModel = createBinaryModel(pli);
+        //Gomory Cuts routine
+        if (!checkIntegerSolution(model)) {
+
+            List<Integer> columnBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, true);
+            List<Integer> columnOutOfBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, false);
+
+            List<GRBVar> basisVars = getBasisOrOutOfBasisVars(model, columnBasisIndexes, true);
+            List<GRBVar> outOfBasisVars = getBasisOrOutOfBasisVars(model, columnOutOfBasisIndexes, false);
+
+            matrices = getBasisAndOutOfBasisMatrix(model, matrix, columnBasisIndexes, columnOutOfBasisIndexes);
+
+            //B
+            RealMatrix basisMatrix = matrices[0];
+
+            //N
+            RealMatrix outOfBasisMatrix = matrices[1];
+
+            //b
+            RealMatrix constantTermsVector = pli.getConstantTermsVector();
+
+            //B^(-1)
+            RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
+
+            //B^(-1)*N
+            RealMatrix basisInverseDotOutOfBasisMatrix = basisInverseMatrix.multiply(outOfBasisMatrix);
+
+            //B^(-1)*b
+            RealMatrix basisInverseDotConstantTermsVector = basisInverseMatrix.multiply(constantTermsVector);
+
+
+        }
+
+
+        //-------------------FOR DEBUGGING------------------------------------------------
+        /*GRBModel binaryModel = createBinaryModel(pli);
         binaryModel.update();
         binaryModel.write("binary_debug.lp");
         binaryModel.optimize();
         binaryModel.update();
-        binaryModel.write("binary_debug.sol");
+        binaryModel.write("binary_debug.sol");*/
     }
 
 }

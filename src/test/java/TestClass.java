@@ -1,3 +1,6 @@
+import gurobi.GRBException;
+import gurobi.GRBModel;
+import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -67,6 +70,23 @@ public class TestClass {
             }
             Assertions.assertTrue(flag);
         }
+    }
+
+    @Test
+    public void realBasisTest() throws GRBException, FileNotFoundException {
+        PLController plController = new PLController();
+        FileImport fileImport = new FileImport("C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-1.mis");
+        RealMatrix matrix = fileImport.populate();
+        PLI pli = new PLI(matrix);
+        GRBModel model = plController.createModel(pli);
+        model.optimize();
+        RealMatrix realMatrix = null;
+        if (!plController.checkIntegerSolution(model)) {
+            realMatrix = plController.getBasisMatrix(model, matrix);
+        }
+        boolean bool = false;
+        if(realMatrix.getColumnDimension() == 30) bool = true;
+        Assertions.assertTrue(bool);
     }
 
     @Test
