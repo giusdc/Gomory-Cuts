@@ -138,6 +138,7 @@ public class PLController {
                 }
             }
         }
+        System.err.println("type: " + basis + " length: " + variables.length);
         return list;
     }
 
@@ -182,20 +183,24 @@ public class PLController {
         return matrices;
     }
 
-    public RealMatrix extendMatrix(RealMatrix matrix, int n) {
+    public RealMatrix extendMatrix(RealMatrix matrix, int n, boolean vector) {
         RealMatrix newMatrix = null;
         double[][] oldValues = new double[matrix.getRowDimension()][matrix.getColumnDimension()];
 
         matrix.copySubMatrix(0, matrix.getRowDimension() - 1, 0, matrix.getColumnDimension() - 1, oldValues);
 
-        newMatrix = MatrixUtils.createRealMatrix(matrix.getRowDimension() + n, matrix.getColumnDimension() + n);
+        if (vector) {
+            newMatrix = MatrixUtils.createRealMatrix(matrix.getRowDimension() + n, matrix.getColumnDimension());
+        } else {
+            newMatrix = MatrixUtils.createRealMatrix(matrix.getRowDimension() + n, matrix.getColumnDimension() + n);
+        }
         newMatrix.setSubMatrix(oldValues, 0, 0);
 
         return newMatrix;
     }
 
     //compute the linear programming problem given the file
-    public void calculate(String file) throws FileNotFoundException, GRBException {
+    public void calculate(String file, int iterations) throws FileNotFoundException, GRBException {
         FileImport fileImport = new FileImport(file);
 
         //A
@@ -211,8 +216,10 @@ public class PLController {
         model.update();
         model.write("frb30-15-1.sol");
 
+        int counter = 0;
+
         //Gomory Cuts routine
-        if (!checkIntegerSolution(model)) {
+        while (!checkIntegerSolution(model) || counter < iterations) {
 
             List<Integer> columnBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 0);
             List<Integer> columnOutOfBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 1);
@@ -246,7 +253,10 @@ public class PLController {
             int lastRow = matrix.getRowDimension();
 
             //extend A matrix for the cuts
-            matrix = extendMatrix(matrix, basisFractionaryVars.size());
+            matrix = extendMatrix(matrix, basisFractionaryVars.size(), false);
+
+            //extend vector b
+            constantTermsVector = extendMatrix(constantTermsVector, basisFractionaryVars.size(), true);
 
             //add Gomory cuts
             for (int i = 0; i < basisFractionaryVars.size(); i++) {
@@ -266,23 +276,36 @@ public class PLController {
 
                 }
 
-                GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "sg" + (lastRow + i));
+                String slackName = "sg" + (lastRow + i);
+
+                GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
+
+                pli.getVariables().add(slackName);
 
                 expr.addTerm(1d, slack);
 
                 double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
-                model.addConstr(expr, GRB.EQUAL, constant, "g" + i);
 
+                model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + i));
+
+                constantTermsVector.setEntry(lastRow + i, 0, constant);
 
             }
 
+            System.err.println("constr: " + model.getConstrs().length);
+
+
+            pli.setCoefficientMatrix(matrix);
+            pli.setConstantTermsVector(constantTermsVector);
 
             model.update();
-            model.write("frb30-15-1(2).lp");
+            model.write("frb30-15-1(" + counter + ").lp");
             model.optimize();
             model.update();
-            model.write("frb30-15-1(2).sol");
+            model.write("frb30-15-1(" + counter + ").sol");
 
+
+            counter++;
         }
 
 
