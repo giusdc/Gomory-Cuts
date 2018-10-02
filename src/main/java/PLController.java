@@ -169,13 +169,13 @@ public class PLController {
 
         matrices[0] = MatrixUtils.createRealMatrix(rows, columnBasisIndexes.size());
         for (int i = 0; i < columnBasisIndexes.size(); i++) {
-            column = matrix.getColumn(i);
+            column = matrix.getColumn(columnBasisIndexes.get(i));
             matrices[0].setColumn(i, column);
         }
 
         matrices[1] = MatrixUtils.createRealMatrix(rows, columnOutOfBasisIndexes.size());
         for (int i = 0; i < columnOutOfBasisIndexes.size(); i++) {
-            column = matrix.getColumn(i);
+            column = matrix.getColumn(columnOutOfBasisIndexes.get(i));
             matrices[1].setColumn(i, column);
         }
 
@@ -256,11 +256,9 @@ public class PLController {
 
                 matrix.setEntry(lastRow + i, columnFractionaryBasisIndexes.get(i), 1d);
 
-                String varName = outOfBasisVars.get(i).get(GRB.StringAttr.VarName);
-
                 for (int j = 0; j < outOfBasisVars.size(); j++) {
 
-                    double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(pli.getVarPosition().get(varName), columnOutOfBasisIndexes.get(j)));
+                    double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
 
                     expr.addTerm(value, outOfBasisVars.get(j));
 
@@ -272,11 +270,18 @@ public class PLController {
 
                 expr.addTerm(1d, slack);
 
-                double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(pli.getVarPosition().get(varName), 0));
+                double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
                 model.addConstr(expr, GRB.EQUAL, constant, "g" + i);
 
 
             }
+
+
+            model.update();
+            model.write("frb30-15-1(2).lp");
+            model.optimize();
+            model.update();
+            model.write("frb30-15-1(2).sol");
 
         }
 
