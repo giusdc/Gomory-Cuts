@@ -10,6 +10,9 @@
       <entry name="!?*.flex" />
       <entry name="!?*.kt" />
       <entry name="!?*.clj" />
+      <entry name="!*.mps" />
+      <entry name="!*.mpsr" />
+      <entry name="!*.model" />
     </wildcardResourcePatterns>
     <annotationProcessing>
       <profile name="Maven default annotation processors profile" enabled="true">

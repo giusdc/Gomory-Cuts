@@ -47,6 +47,8 @@ public class FileImport {
                 rows++;
             }
 
+            if(!scanner.hasNext()) break;
+
             //jump first letter "e"
             scanner.next();
 
@@ -104,6 +106,8 @@ public class FileImport {
                 //update row index
                 rowIndex++;
             }
+
+            if(!scanner.hasNext()) break;
 
             //jump first letter "e"
             scanner.next();

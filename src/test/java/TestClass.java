@@ -82,7 +82,7 @@ public class TestClass {
         model.optimize();
         RealMatrix realMatrix = null;
         if (!plController.checkIntegerSolution(model)) {
-            realMatrix = plController.getBasisMatrix(model, matrix);
+            //realMatrix = plController.getBasisMatrix(model, matrix);
         }
         boolean bool = false;
         if(realMatrix.getColumnDimension() == 30) bool = true;

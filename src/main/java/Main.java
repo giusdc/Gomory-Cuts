@@ -7,14 +7,14 @@ import java.io.FileNotFoundException;
 
 public class Main {
 
-    private static final String file = "C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-2.mis";
+    private static final String file = "C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-1.mis";
 
     public static void main(String[] args) {
 
         PLController plController = null;
         try {
             plController = new PLController();
-            plController.calculate(file);;
+            plController.calculate(file);
         } catch (GRBException e) {
             e.printStackTrace();
         } catch (FileNotFoundException e) {
