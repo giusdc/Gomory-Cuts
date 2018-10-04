@@ -1,6 +1,8 @@
 import gurobi.*;
+import org.apache.commons.math3.linear.LUDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
+import utils.Debug;
 import utils.FileImport;
 import entities.PLI;
 
@@ -11,9 +13,11 @@ import java.util.List;
 public class PLController {
 
     private GRBEnv grbEnv;
+    private int numOfVert;
 
-    public PLController() throws GRBException {
+    public PLController(int numOfVert) throws GRBException {
         grbEnv = new GRBEnv("pli.log");
+        this.numOfVert = numOfVert;
     }
 
     //create GUROBI Model given the coefficient matrix and the variables
@@ -52,7 +56,7 @@ public class PLController {
 
     public List<GRBVar> createBinaryVariables(GRBModel grbModel, List<String> variables) throws GRBException {
         List<GRBVar> list = new ArrayList<GRBVar>();
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < Main.numOfVert; i++) {
             list.add(grbModel.addVar(0.0, 1.0, 0.0, GRB.CONTINUOUS, variables.get(i)));
         }
         return list;
@@ -61,7 +65,7 @@ public class PLController {
     public void createObjectiveFunction(GRBModel grbModel, List<GRBVar> variables) throws GRBException {
         GRBLinExpr expr = new GRBLinExpr();
         double weight = 0;
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < Main.numOfVert; i++) {
             weight++;
             expr.addTerm(weight, variables.get(i));
         }
@@ -77,7 +81,7 @@ public class PLController {
 
         for (int i = 0; i < rows; i++) {
             expr = new GRBLinExpr();
-            for (int j = 0; j < 30; j++) {
+            for (int j = 0; j < Main.numOfVert; j++) {
                 if (matrix.getEntry(i, j) != 0d)
                     expr.addTerm(matrix.getEntry(i, j), variables.get(j));
             }
@@ -118,16 +122,21 @@ public class PLController {
     public List<Integer> getBasisOrOutOfBasisIndexes(GRBModel model, RealMatrix matrix, int basis) throws GRBException {
         List<Integer> list = new ArrayList<Integer>();
         GRBVar[] variables = model.getVars();
+        GRBVar[] varToPrint = new GRBVar[model.getVars().length];
         if (basis == 0) {
             for (int i = 0; i < variables.length; i++) {
+                double a = variables[i].get(GRB.DoubleAttr.RC);
+                String var = variables[i].get(GRB.StringAttr.VarName);
                 if (variables[i].get(GRB.DoubleAttr.RC) == 0.0) {
                     list.add(i);
+                    varToPrint[i] = variables[i];
                 }
             }
         } else if (basis == 1) {
             for (int i = 0; i < variables.length; i++) {
                 if (variables[i].get(GRB.DoubleAttr.RC) != 0.0) {
                     list.add(i);
+                    varToPrint[i] = variables[i];
                 }
             }
         } else if (basis == 2) {
@@ -135,10 +144,15 @@ public class PLController {
                 double value = variables[i].get(GRB.DoubleAttr.X);
                 if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) != value) {
                     list.add(i);
+                    varToPrint[i] = variables[i];
+                } else if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) == value) {
+                    list.add(-1);
                 }
             }
         }
-        System.err.println("type: " + basis + " length: " + variables.length);
+        System.err.println("type: " + basis);
+        System.err.println("list: " + list);
+        Debug.printVars(varToPrint);
         return list;
     }
 
@@ -201,25 +215,34 @@ public class PLController {
 
     //compute the linear programming problem given the file
     public void calculate(String file, int iterations) throws FileNotFoundException, GRBException {
-        FileImport fileImport = new FileImport(file);
+        FileImport fileImport = new FileImport(file, numOfVert);
 
         //A
         RealMatrix matrix = fileImport.populate();
 
+        System.err.println("A");
+        Debug.printMatrix(matrix);
 
         RealMatrix[] matrices = null;
-        PLI pli = new PLI(matrix);
+        PLI pli = new PLI(matrix, numOfVert);
         GRBModel model = createModel(pli);
-        model.update();
-        model.write("frb30-15-1.lp");
+        //model.update();
+        model.write("frb30-15-1.mps");
+        model.relax();
         model.optimize();
-        model.update();
+        //model.update();
         model.write("frb30-15-1.sol");
+
+        for (GRBConstr c : model.getConstrs()) {
+            System.err.println("---------------------------" + c.get( GRB.DoubleAttr.Slack));
+        }
 
         int counter = 0;
 
         //Gomory Cuts routine
         while (!checkIntegerSolution(model) || counter < iterations) {
+
+            System.err.println("-----------------------> " + counter);
 
             List<Integer> columnBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 0);
             List<Integer> columnOutOfBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 1);
@@ -232,15 +255,22 @@ public class PLController {
 
             //B
             RealMatrix basisMatrix = matrices[0];
+            System.err.println("B");
+            Debug.printMatrix(basisMatrix);
 
             //N
             RealMatrix outOfBasisMatrix = matrices[1];
+            System.err.println("N");
+            Debug.printMatrix(outOfBasisMatrix);
 
             //b
             RealMatrix constantTermsVector = pli.getConstantTermsVector();
+            System.err.println("b");
+            Debug.printMatrix(constantTermsVector);
 
             //B^(-1)
-            RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
+            //RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
+            RealMatrix basisInverseMatrix = new LUDecomposition(basisMatrix).getSolver().getInverse();
 
             //B^(-1)*N
             RealMatrix basisInverseDotOutOfBasisMatrix = basisInverseMatrix.multiply(outOfBasisMatrix);
@@ -258,50 +288,55 @@ public class PLController {
             //extend vector b
             constantTermsVector = extendMatrix(constantTermsVector, basisFractionaryVars.size(), true);
 
+            int count = 0;
+
             //add Gomory cuts
-            for (int i = 0; i < basisFractionaryVars.size(); i++) {
+            //for (int i = 0; i < basisFractionaryVars.size(); i++) {
+            for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
 
-                expr = new GRBLinExpr();
-                expr.addTerm(1d, basisFractionaryVars.get(i));
+                if(columnFractionaryBasisIndexes.get(i) != -1) {
+                    expr = new GRBLinExpr();
+                    //expr.addTerm(1d, basisFractionaryVars.get(i));
+                    expr.addTerm(1d, basisFractionaryVars.get(count));
 
-                matrix.setEntry(lastRow + i, columnFractionaryBasisIndexes.get(i), 1d);
+                    matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
 
-                for (int j = 0; j < outOfBasisVars.size(); j++) {
+                    for (int j = 0; j < outOfBasisVars.size(); j++) {
 
-                    double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+                        double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
 
-                    expr.addTerm(value, outOfBasisVars.get(j));
+                        expr.addTerm(value, outOfBasisVars.get(j));
 
-                    matrix.setEntry(lastRow + i, columnOutOfBasisIndexes.get(j), value);
+                        matrix.setEntry(lastRow + count, columnOutOfBasisIndexes.get(j), value);
 
+                    }
+
+                    String slackName = "sg" + (lastRow + count);
+
+                    GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
+
+                    pli.getVariables().add(slackName);
+
+                    expr.addTerm(1d, slack);
+
+                    double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
+
+                    model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
+
+                    constantTermsVector.setEntry(lastRow + count, 0, constant);
+
+                    count++;
                 }
 
-                String slackName = "sg" + (lastRow + i);
-
-                GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
-
-                pli.getVariables().add(slackName);
-
-                expr.addTerm(1d, slack);
-
-                double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
-
-                model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + i));
-
-                constantTermsVector.setEntry(lastRow + i, 0, constant);
-
             }
-
-            System.err.println("constr: " + model.getConstrs().length);
-
 
             pli.setCoefficientMatrix(matrix);
             pli.setConstantTermsVector(constantTermsVector);
 
-            model.update();
+            //model.update();
             model.write("frb30-15-1(" + counter + ").lp");
             model.optimize();
-            model.update();
+            //model.update();
             model.write("frb30-15-1(" + counter + ").sol");
 
 

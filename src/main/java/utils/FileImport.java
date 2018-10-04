@@ -10,9 +10,11 @@ import java.util.Scanner;
 public class FileImport {
 
     private File file;
+    private int numOfVar;
 
-    public FileImport(String path) {
+    public FileImport(String path, int numOfVar) {
         this.file = new File(path);
+        this.numOfVar = numOfVar;
     }
 
     //count rows
@@ -38,10 +40,10 @@ public class FileImport {
         secondVertex = scanner.nextInt();
 
 
-        while (firstVertex <= 30) {
+        while (firstVertex <= numOfVar) {
 
             //skip too high vertex values
-            if (secondVertex <= 30) {
+            if (secondVertex <= numOfVar) {
 
                 //update rows counter
                 rows++;
@@ -69,7 +71,7 @@ public class FileImport {
 
         //create matrix object
         int rows = countRows();
-        int columns = 30;
+        int columns = numOfVar;
         RealMatrix realMatrix = MatrixUtils.createRealMatrix(rows, columns + rows);
 
         //jump first line
@@ -93,10 +95,10 @@ public class FileImport {
         secondVertex = scanner.nextInt();
 
 
-        while (firstVertex <= 30) {
+        while (firstVertex <= numOfVar) {
 
             //skip too high vertex values
-            if (secondVertex <= 30) {
+            if (secondVertex <= numOfVar) {
 
                 //populate matrix
                 realMatrix.addToEntry(rowIndex, firstVertex - 1, 1D);
