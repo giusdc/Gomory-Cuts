@@ -84,7 +84,7 @@ public class TestClass {
             //realMatrix = plController.getBasisMatrix(model, matrix);
         }
         boolean bool = false;
-        if (realMatrix.getColumnDimension() == 30) bool = true;
+        if(realMatrix.getColumnDimension() == 30) bool = true;
         Assertions.assertTrue(bool);
     }
 
@@ -105,8 +105,8 @@ public class TestClass {
     @Test
     public void RC() throws GRBException {
 
-        GRBEnv env = new GRBEnv("mip1.log");
-        GRBModel model = new GRBModel(env);
+        GRBEnv env   = new GRBEnv("mip1.log");
+        GRBModel  model = new GRBModel(env);
 
         // Create variables
 
@@ -135,41 +135,31 @@ public class TestClass {
         // Add constraint: x0 + x1 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x0);
-        expr.addTerm(1.0, x1);
-        expr.addTerm(-1.0, s0);
+        expr.addTerm(1.0, x0); expr.addTerm(1.0, x1); expr.addTerm(-1.0, s0);
         model.addConstr(expr, GRB.EQUAL, 1.0, "c0");
 
         // Add constraint: x0 + x3 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x0);
-        expr.addTerm(1.0, x3);
-        expr.addTerm(-1.0, s1);
+        expr.addTerm(1.0, x0); expr.addTerm(1.0, x3); expr.addTerm(-1.0, s1);
         model.addConstr(expr, GRB.EQUAL, 1.0, "c1");
 
         // Add constraint: x1 + x3 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x1);
-        expr.addTerm(1.0, x3);
-        expr.addTerm(-1.0, s2);
+        expr.addTerm(1.0, x1); expr.addTerm(1.0, x3); expr.addTerm(-1.0, s2);
         model.addConstr(expr, GRB.EQUAL, 1.0, "c2");
 
         // Add constraint: x2 + x3 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x2);
-        expr.addTerm(1.0, x3);
-        expr.addTerm(-1.0, s3);
+        expr.addTerm(1.0, x2); expr.addTerm(1.0, x3); expr.addTerm(-1.0, s3);
         model.addConstr(expr, GRB.EQUAL, 1.0, "c3");
 
         // Add constraint: x1 + x2 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x1);
-        expr.addTerm(1.0, x2);
-        expr.addTerm(-1.0, s4);
+        expr.addTerm(1.0, x1); expr.addTerm(1.0, x2); expr.addTerm(-1.0, s4);
         model.addConstr(expr, GRB.EQUAL, 1.0, "c4");
 
         // Add constraint: x0 + x2 >= 1
