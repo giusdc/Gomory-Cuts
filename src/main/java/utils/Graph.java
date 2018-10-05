@@ -13,6 +13,8 @@ import java.util.Scanner;
 
 public class Graph extends JFrame {
 
+    private static final int vertex = 6;
+
     public Graph() throws FileNotFoundException {
         super("Hello, World!");
 
@@ -23,7 +25,7 @@ public class Graph extends JFrame {
         try {
 
             //create object to scan file
-            Scanner scanner = new Scanner(new File("C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-1.mis"));
+            Scanner scanner = new Scanner(new File("C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb_prova.mis"));
 
             //jump first line
             scanner.nextLine();
@@ -44,10 +46,10 @@ public class Graph extends JFrame {
 
             HashMap<Integer, Object> map = new HashMap<Integer, Object>();
 
-            while (firstVertex <= 30) {
+            while (firstVertex <= vertex) {
 
                 //skip too high vertex values
-                if (secondVertex <= 30) {
+                if (secondVertex <= vertex) {
 
                     Object v1, v2;
                     if (!map.containsKey(firstVertex)) {
@@ -71,6 +73,8 @@ public class Graph extends JFrame {
                     graph.insertEdge(parent, null, "", v1, v2, "endArrow=none;");
 
                 }
+
+                if(!scanner.hasNext()) break;
 
                 //jump first letter "e"
                 scanner.next();

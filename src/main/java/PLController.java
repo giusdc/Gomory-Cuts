@@ -233,7 +233,7 @@ public class PLController {
     }
 
     //compute the linear programming problem given the file
-    public void calculate(String filePath, String fileName, String path, int iterations, boolean binary) throws FileNotFoundException, GRBException {
+    public void calculate(String filePath, String fileName, String path, int iterations, boolean integerCut, boolean binary) throws FileNotFoundException, GRBException {
         FileImport fileImport = new FileImport(filePath, numOfVert);
 
         //A
@@ -343,15 +343,23 @@ public class PLController {
 
                         expr = new GRBLinExpr();
 
-                        expr.addTerm(1d, basisFractionaryVars.get(count));
+                        if (integerCut) {
 
-                        matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
+                            expr.addTerm(1d, basisFractionaryVars.get(count));
+
+                            matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
+
+                        }
 
                         //out of basis variables terms
 
                         for (int j = 0; j < outOfBasisVars.size(); j++) {
 
                             double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+
+                            if (!integerCut) {
+                                value = basisInverseDotOutOfBasisMatrix.getEntry(i, j) - value;
+                            }
 
                             expr.addTerm(value, outOfBasisVars.get(j));
 
@@ -365,13 +373,23 @@ public class PLController {
 
                         pli.getVariables().add(slackName);
 
-                        expr.addTerm(1d, slack);
+                        if(integerCut) {
+                            expr.addTerm(1d, slack);
 
-                        matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
+                            matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
+                        } else {
+                            expr.addTerm(-1d, slack);
+
+                            matrix.setEntry(lastRow + count, lastColumn + count, -1.0);
+                        }
 
                         //constant term
 
                         double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
+
+                        if(!integerCut) {
+                            constant = basisInverseDotConstantTermsVector.getEntry(i, 0) - constant;
+                        }
 
                         model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
 
