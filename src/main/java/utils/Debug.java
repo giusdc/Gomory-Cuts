@@ -31,7 +31,7 @@ public class Debug {
 
         for (GRBVar var : vars) {
             if (var != null)
-                System.err.print(var.get(GRB.StringAttr.VarName) + " ");
+                System.err.print(var.get(GRB.StringAttr.VarName) + " RC: " + var.get(GRB.DoubleAttr.RC) + " ");
         }
         System.err.println("\n");
         System.err.println("-----------------------------------END VARS--------------------------------------");

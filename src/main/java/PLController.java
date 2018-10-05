@@ -102,7 +102,8 @@ public class PLController {
                 if (matrix.getEntry(i, j) != 0d)
                     expr.addTerm(matrix.getEntry(i, j), variables.get(j));
             }
-            grbModel.addConstr(expr, GRB.EQUAL, 1d, "c" + i);
+            //grbModel.addConstr(expr, GRB.EQUAL, 1d, "c" + i);
+            grbModel.addConstr(expr, GRB.GREATER_EQUAL, 1d, "c" + i);
         }
     }
 
@@ -127,14 +128,16 @@ public class PLController {
             for (int i = 0; i < variables.length; i++) {
                 double a = variables[i].get(GRB.DoubleAttr.RC);
                 String var = variables[i].get(GRB.StringAttr.VarName);
-                if (variables[i].get(GRB.DoubleAttr.RC) == 0.0) {
+                //if (variables[i].get(GRB.DoubleAttr.RC) == 0.0) {
+                if (variables[i].get(GRB.IntAttr.VBasis) == 0) {
                     list.add(i);
                     varToPrint[i] = variables[i];
                 }
             }
         } else if (basis == 1) {
             for (int i = 0; i < variables.length; i++) {
-                if (variables[i].get(GRB.DoubleAttr.RC) != 0.0) {
+                //if (variables[i].get(GRB.DoubleAttr.RC) != 0.0) {
+                if (variables[i].get(GRB.IntAttr.VBasis) != 0) {
                     list.add(i);
                     varToPrint[i] = variables[i];
                 }
@@ -142,10 +145,12 @@ public class PLController {
         } else if (basis == 2) {
             for (int i = 0; i < variables.length; i++) {
                 double value = variables[i].get(GRB.DoubleAttr.X);
-                if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) != value) {
+                //if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) != value) {
+                if (variables[i].get(GRB.IntAttr.VBasis) == 0 && Math.floor(value) != value) {
                     list.add(i);
                     varToPrint[i] = variables[i];
-                } else if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) == value) {
+                    //} else if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) == value) {
+                } else if (variables[i].get(GRB.IntAttr.VBasis) == 0 && Math.floor(value) == value) {
                     list.add(-1);
                 }
             }
@@ -213,6 +218,15 @@ public class PLController {
         return newMatrix;
     }
 
+    public void cleanModel(GRBModel model) throws GRBException {
+        for (int i = 0; i < model.getVars().length; i++) {
+            if (model.getVar(i).get(GRB.StringAttr.VarName).contains("ArtP_c") || model.getVar(i).get(GRB.StringAttr.VarName).contains("ArtN_g") || model.getVar(i).get(GRB.StringAttr.VarName).contains("ArtN_f")) {
+                GRBVar slack = model.getVar(i);
+                model.remove(slack);
+            }
+        }
+    }
+
     //compute the linear programming problem given the file
     public void calculate(String file, int iterations) throws FileNotFoundException, GRBException {
         FileImport fileImport = new FileImport(file, numOfVert);
@@ -220,29 +234,32 @@ public class PLController {
         //A
         RealMatrix matrix = fileImport.populate();
 
-        System.err.println("A");
-        Debug.printMatrix(matrix);
-
         RealMatrix[] matrices = null;
         PLI pli = new PLI(matrix, numOfVert);
         GRBModel model = createModel(pli);
-        //model.update();
-        model.write("frb30-15-1.mps");
-        model.relax();
+        model.set(GRB.IntParam.Method,0);
+        model.update();
+        model.write("frb30-15-1.lp");
+        model.feasRelax(GRB.FEASRELAX_LINEAR, true, false, true);
+        cleanModel(model);
         model.optimize();
-        //model.update();
+        model.update();
         model.write("frb30-15-1.sol");
-
-        for (GRBConstr c : model.getConstrs()) {
-            System.err.println("---------------------------" + c.get( GRB.DoubleAttr.Slack));
-        }
 
         int counter = 0;
 
         //Gomory Cuts routine
         while (!checkIntegerSolution(model) || counter < iterations) {
 
+            /*for (GRBConstr c: model.getConstrs()) {
+                System.err.println(c.get(GRB.StringAttr.ConstrName));
+                System.err.println(c.get(GRB.IntAttr.CBasis));
+            }*/
+
             System.err.println("-----------------------> " + counter);
+
+            System.err.println("A");
+            Debug.printMatrix(matrix);
 
             List<Integer> columnBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 0);
             List<Integer> columnOutOfBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 1);
@@ -271,16 +288,23 @@ public class PLController {
             //B^(-1)
             //RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
             RealMatrix basisInverseMatrix = new LUDecomposition(basisMatrix).getSolver().getInverse();
+            System.err.println("B^(-1)");
+            Debug.printMatrix(basisInverseMatrix);
 
             //B^(-1)*N
             RealMatrix basisInverseDotOutOfBasisMatrix = basisInverseMatrix.multiply(outOfBasisMatrix);
+            System.err.println("B^(-1)*N");
+            Debug.printMatrix(basisInverseDotOutOfBasisMatrix);
 
             //B^(-1)*b
             RealMatrix basisInverseDotConstantTermsVector = basisInverseMatrix.multiply(constantTermsVector);
+            System.err.println("B^(-1)*b");
+            Debug.printMatrix(basisInverseDotConstantTermsVector);
 
             GRBLinExpr expr = null;
 
             int lastRow = matrix.getRowDimension();
+            int lastColumn = matrix.getColumnDimension();
 
             //extend A matrix for the cuts
             matrix = extendMatrix(matrix, basisFractionaryVars.size(), false);
@@ -294,12 +318,15 @@ public class PLController {
             //for (int i = 0; i < basisFractionaryVars.size(); i++) {
             for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
 
-                if(columnFractionaryBasisIndexes.get(i) != -1) {
+                if (columnFractionaryBasisIndexes.get(i) != -1) {
+
                     expr = new GRBLinExpr();
                     //expr.addTerm(1d, basisFractionaryVars.get(i));
                     expr.addTerm(1d, basisFractionaryVars.get(count));
 
                     matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
+
+                    //out of basis variables terms
 
                     for (int j = 0; j < outOfBasisVars.size(); j++) {
 
@@ -311,7 +338,9 @@ public class PLController {
 
                     }
 
-                    String slackName = "sg" + (lastRow + count);
+                    //
+
+                    String slackName = "ArtP_" + "g" + (lastRow + count);
 
                     GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
 
@@ -319,9 +348,13 @@ public class PLController {
 
                     expr.addTerm(1d, slack);
 
+                    matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
+
+                    //constant term
+
                     double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
 
-                    model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
+                    model.addConstr(expr, GRB.LESS_EQUAL, constant, "g" + (lastRow + count));
 
                     constantTermsVector.setEntry(lastRow + count, 0, constant);
 
@@ -332,11 +365,13 @@ public class PLController {
 
             pli.setCoefficientMatrix(matrix);
             pli.setConstantTermsVector(constantTermsVector);
-
-            //model.update();
+            model.set(GRB.IntParam.Method,0);
+            model.update();
             model.write("frb30-15-1(" + counter + ").lp");
+            model.feasRelax(GRB.FEASRELAX_LINEAR, true, false, true);
+            cleanModel(model);
             model.optimize();
-            //model.update();
+            model.update();
             model.write("frb30-15-1(" + counter + ").sol");
 
 
