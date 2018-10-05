@@ -73,7 +73,7 @@ public class TestClass {
 
     @Test
     public void realBasisTest() throws GRBException, FileNotFoundException {
-        PLController plController = new PLController(30);
+        PLController plController = new PLController(30, true);
         FileImport fileImport = new FileImport("C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-1.mis", 30);
         RealMatrix matrix = fileImport.populate();
         PLI pli = new PLI(matrix, 30);
@@ -110,18 +110,18 @@ public class TestClass {
 
         // Create variables
 
-        GRBVar x0 = model.addVar(0.0, 1.0, 1.0, GRB.CONTINUOUS, "x0");
-        GRBVar x1 = model.addVar(0.0, 1.0, 2.0, GRB.CONTINUOUS, "x1");
-        GRBVar x2 = model.addVar(0.0, 1.0, 3.0, GRB.CONTINUOUS, "x2");
-        GRBVar x3 = model.addVar(0.0, 1.0, 4.0, GRB.CONTINUOUS, "x3");
+        GRBVar x0 = model.addVar(0.0, 1.0, 1.0, GRB.BINARY, "x0");
+        GRBVar x1 = model.addVar(0.0, 1.0, 2.0, GRB.BINARY, "x1");
+        GRBVar x2 = model.addVar(0.0, 1.0, 3.0, GRB.BINARY, "x2");
+        GRBVar x3 = model.addVar(0.0, 1.0, 4.0, GRB.BINARY, "x3");
 
         model.set(GRB.IntAttr.ModelSense, GRB.MINIMIZE);
 
-        GRBVar s0 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s0");
+        /*GRBVar s0 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s0");
         GRBVar s1 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s1");
         GRBVar s2 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s2");
         GRBVar s3 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s3");
-        GRBVar s4 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s4");
+        GRBVar s4 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s4");*/
         //GRBVar s5 = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, "s5");
 
         // Set objective: minimize x0 + 2 x1 + 3 x2 + 4 x3
@@ -135,32 +135,32 @@ public class TestClass {
         // Add constraint: x0 + x1 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x0); expr.addTerm(1.0, x1); expr.addTerm(-1.0, s0);
-        model.addConstr(expr, GRB.EQUAL, 1.0, "c0");
+        expr.addTerm(1.0, x0); expr.addTerm(1.0, x1); //expr.addTerm(-1.0, s0);
+        model.addConstr(expr, GRB.GREATER_EQUAL, 1.0, "c0");
 
         // Add constraint: x0 + x3 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x0); expr.addTerm(1.0, x3); expr.addTerm(-1.0, s1);
-        model.addConstr(expr, GRB.EQUAL, 1.0, "c1");
+        expr.addTerm(1.0, x0); expr.addTerm(1.0, x3); //expr.addTerm(-1.0, s1);
+        model.addConstr(expr, GRB.GREATER_EQUAL, 1.0, "c1");
 
         // Add constraint: x1 + x3 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x1); expr.addTerm(1.0, x3); expr.addTerm(-1.0, s2);
-        model.addConstr(expr, GRB.EQUAL, 1.0, "c2");
+        expr.addTerm(1.0, x1); expr.addTerm(1.0, x3); //expr.addTerm(-1.0, s2);
+        model.addConstr(expr, GRB.GREATER_EQUAL, 1.0, "c2");
 
         // Add constraint: x2 + x3 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x2); expr.addTerm(1.0, x3); expr.addTerm(-1.0, s3);
-        model.addConstr(expr, GRB.EQUAL, 1.0, "c3");
+        expr.addTerm(1.0, x2); expr.addTerm(1.0, x3); //expr.addTerm(-1.0, s3);
+        model.addConstr(expr, GRB.GREATER_EQUAL, 1.0, "c3");
 
         // Add constraint: x1 + x2 >= 1
 
         expr = new GRBLinExpr();
-        expr.addTerm(1.0, x1); expr.addTerm(1.0, x2); expr.addTerm(-1.0, s4);
-        model.addConstr(expr, GRB.EQUAL, 1.0, "c4");
+        expr.addTerm(1.0, x1); expr.addTerm(1.0, x2); //expr.addTerm(-1.0, s4);
+        model.addConstr(expr, GRB.GREATER_EQUAL, 1.0, "c4");
 
         // Add constraint: x0 + x2 >= 1
 
@@ -176,7 +176,7 @@ public class TestClass {
 
         System.out.println("----------------------------------------------------------------------");
 
-        for (GRBVar v : model.getVars()) {
+       /* for (GRBVar v : model.getVars()) {
             System.out.println(v.get(GRB.StringAttr.VarName));
             System.out.println(v.get(GRB.IntAttr.VBasis));
 
@@ -186,7 +186,7 @@ public class TestClass {
             System.out.println(c.get(GRB.StringAttr.ConstrName));
             System.out.println(c.get(GRB.IntAttr.CBasis));
         }
-
+*/
         System.out.println("----------------------------------------------------------------------");
 
         // Dispose of model and environment

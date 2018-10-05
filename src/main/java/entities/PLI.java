@@ -33,8 +33,8 @@ public class PLI {
             this.varPosition.put("x" + i, i);
         }
         for (int i = 0; i < rows; i++) {
-            variables.add("ArtN_" + "c" + i);
-            this.varPosition.put("ArtN_" + "c" + i, numOfVert + i);
+            variables.add("s" + i);
+            this.varPosition.put("s" + i, numOfVert + i);
             this.constantTermsVector.setEntry(i, 0, 1.0);
         }
     }
