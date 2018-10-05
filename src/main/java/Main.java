@@ -9,7 +9,7 @@ public class Main {
 
     public static final int numOfVert = 4;
 
-    private static final String file = "C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-mis\\frb30-15-1-prova.mis";
+    private static final String file = "C:\\Users\\giuse\\IdeaProjects\\untitled\\frb30-15-mis\\frb30-15-1-prova.mis";
 
     public static void main(String[] args) {
 
@@ -23,7 +23,12 @@ public class Main {
             e.printStackTrace();
         }
     }
+
+
+
+
 }
+
 
 
 

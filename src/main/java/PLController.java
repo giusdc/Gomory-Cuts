@@ -127,14 +127,14 @@ public class PLController {
             for (int i = 0; i < variables.length; i++) {
                 double a = variables[i].get(GRB.DoubleAttr.RC);
                 String var = variables[i].get(GRB.StringAttr.VarName);
-                if (variables[i].get(GRB.DoubleAttr.RC) == 0.0) {
+                if (variables[i].get(GRB.IntAttr.VBasis) == 0) {
                     list.add(i);
                     varToPrint[i] = variables[i];
                 }
             }
         } else if (basis == 1) {
             for (int i = 0; i < variables.length; i++) {
-                if (variables[i].get(GRB.DoubleAttr.RC) != 0.0) {
+                if (variables[i].get(GRB.IntAttr.VBasis) != 0) {
                     list.add(i);
                     varToPrint[i] = variables[i];
                 }
@@ -142,10 +142,10 @@ public class PLController {
         } else if (basis == 2) {
             for (int i = 0; i < variables.length; i++) {
                 double value = variables[i].get(GRB.DoubleAttr.X);
-                if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) != value) {
+                if (variables[i].get(GRB.IntAttr.VBasis) == 0 && Math.floor(value) != value) {
                     list.add(i);
                     varToPrint[i] = variables[i];
-                } else if (variables[i].get(GRB.DoubleAttr.RC) == 0.0 && Math.floor(value) == value) {
+                } else if (variables[i].get(GRB.IntAttr.VBasis) == 0 && Math.floor(value) == value) {
                     list.add(-1);
                 }
             }
@@ -226,9 +226,10 @@ public class PLController {
         RealMatrix[] matrices = null;
         PLI pli = new PLI(matrix, numOfVert);
         GRBModel model = createModel(pli);
+        model.set(GRB.IntParam.Method,0);
         //model.update();
         model.write("frb30-15-1.mps");
-        model.relax();
+      //  model.relax();
         model.optimize();
         //model.update();
         model.write("frb30-15-1.sol");
@@ -332,7 +333,7 @@ public class PLController {
 
             pli.setCoefficientMatrix(matrix);
             pli.setConstantTermsVector(constantTermsVector);
-
+            model.set(GRB.IntParam.Method,0);
             //model.update();
             model.write("frb30-15-1(" + counter + ").lp");
             model.optimize();
