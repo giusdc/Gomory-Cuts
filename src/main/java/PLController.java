@@ -135,7 +135,7 @@ public class PLController {
                     varToPrint[i] = variables[i];
                 }
                 if (i >= numOfVert) {
-                    if(constraints[i - numOfVert].get(GRB.IntAttr.CBasis) == 0) {
+                    if (constraints[i - numOfVert].get(GRB.IntAttr.CBasis) == 0) {
                         list.add(i);
                         varToPrint[i] = variables[i];
                     }
@@ -158,10 +158,10 @@ public class PLController {
                     list.add(-1);
                 }
                 if (i >= numOfVert) {
-                    if(constraints[i - numOfVert].get(GRB.IntAttr.CBasis) == 0  && Math.floor(value) != value) {
+                    if (constraints[i - numOfVert].get(GRB.IntAttr.CBasis) == 0 && Math.floor(value) != value) {
                         list.add(i);
                         varToPrint[i] = variables[i];
-                    } else if (constraints[i - numOfVert].get(GRB.IntAttr.CBasis) == 0  && Math.floor(value) == value) {
+                    } else if (constraints[i - numOfVert].get(GRB.IntAttr.CBasis) == 0 && Math.floor(value) == value) {
                         list.add(-1);
                     }
                 }
@@ -233,175 +233,178 @@ public class PLController {
     }
 
     //compute the linear programming problem given the file
-    public void calculate(String file, String path, int iterations) throws FileNotFoundException, GRBException {
-        FileImport fileImport = new FileImport(file, numOfVert);
+    public void calculate(String filePath, String fileName, String path, int iterations, boolean binary) throws FileNotFoundException, GRBException {
+        FileImport fileImport = new FileImport(filePath, numOfVert);
 
         //A
         RealMatrix matrix = fileImport.populate();
 
         RealMatrix[] matrices = null;
         PLI pli = new PLI(matrix, numOfVert);
-        GRBModel model = createModel(pli);
-        model.set(GRB.IntParam.Method,0);
-        //model.update();
-        model.write(path + "frb30-15-3.lp");
-      //  model.relax();
-        model.optimize();
-        //model.update();
-        model.write(path + "frb30-15-3.sol");
-
-
-        int counter = 0;
-
-        //Gomory Cuts routine
-        while (!checkIntegerSolution(model) && counter < iterations) {
-
-            if(verbose) {
-                for (GRBConstr c : model.getConstrs()) {
-                    System.err.println(c.get(GRB.StringAttr.ConstrName));
-                    System.err.println(c.get(GRB.IntAttr.CBasis));
-                }
-            }
-
-            System.err.println("-----------------------> " + counter);
-
-            if(verbose) {
-                System.err.println("A");
-                Debug.printMatrix(matrix);
-            }
-
-            List<Integer> columnBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 0);
-            List<Integer> columnOutOfBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 1);
-            List<Integer> columnFractionaryBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 2);
-
-            List<GRBVar> basisFractionaryVars = getBasisOrOutOfBasisVars(model, columnBasisIndexes, true);
-            List<GRBVar> outOfBasisVars = getBasisOrOutOfBasisVars(model, columnOutOfBasisIndexes, false);
-
-            matrices = getBasisAndOutOfBasisMatrix(model, matrix, columnBasisIndexes, columnOutOfBasisIndexes);
-
-            //B
-            RealMatrix basisMatrix = matrices[0];
-            if(verbose) {
-                System.err.println("B");
-                Debug.printMatrix(basisMatrix);
-            }
-
-            //N
-            RealMatrix outOfBasisMatrix = matrices[1];
-            if(verbose) {
-                System.err.println("N");
-                Debug.printMatrix(outOfBasisMatrix);
-            }
-
-            //b
-            RealMatrix constantTermsVector = pli.getConstantTermsVector();
-            if(verbose) {
-                System.err.println("b");
-                Debug.printMatrix(constantTermsVector);
-            }
-
-            //B^(-1)
-            //RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
-            RealMatrix basisInverseMatrix = new LUDecomposition(basisMatrix).getSolver().getInverse();
-            if(verbose) {
-                System.err.println("B^(-1)");
-                Debug.printMatrix(basisInverseMatrix);
-            }
-
-            //B^(-1)*N
-            RealMatrix basisInverseDotOutOfBasisMatrix = basisInverseMatrix.multiply(outOfBasisMatrix);
-            if(verbose) {
-                System.err.println("B^(-1)*N");
-                Debug.printMatrix(basisInverseDotOutOfBasisMatrix);
-            }
-
-            //B^(-1)*b
-            RealMatrix basisInverseDotConstantTermsVector = basisInverseMatrix.multiply(constantTermsVector);
-            if(verbose) {
-                System.err.println("B^(-1)*b");
-                Debug.printMatrix(basisInverseDotConstantTermsVector);
-            }
-
-            GRBLinExpr expr = null;
-
-            int lastRow = matrix.getRowDimension();
-            int lastColumn = matrix.getColumnDimension();
-
-            //extend A matrix for the cuts
-            matrix = extendMatrix(matrix, basisFractionaryVars.size(), false);
-
-            //extend vector b
-            constantTermsVector = extendMatrix(constantTermsVector, basisFractionaryVars.size(), true);
-
-            int count = 0;
-
-            //add Gomory cuts
-            for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
-
-                if (columnFractionaryBasisIndexes.get(i) != -1) {
-
-                    expr = new GRBLinExpr();
-
-                    expr.addTerm(1d, basisFractionaryVars.get(count));
-
-                    matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
-
-                    //out of basis variables terms
-
-                    for (int j = 0; j < outOfBasisVars.size(); j++) {
-
-                        double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
-
-                        expr.addTerm(value, outOfBasisVars.get(j));
-
-                        matrix.setEntry(lastRow + count, columnOutOfBasisIndexes.get(j), value);
-
-                    }
-
-                    String slackName = "sg" + (lastRow + count);
-
-                    GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
-
-                    pli.getVariables().add(slackName);
-
-                    expr.addTerm(1d, slack);
-
-                    matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
-
-                    //constant term
-
-                    double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
-
-                    model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
-
-                    constantTermsVector.setEntry(lastRow + count, 0, constant);
-
-                    count++;
-                }
-
-            }
-
-            pli.setCoefficientMatrix(matrix);
-            pli.setConstantTermsVector(constantTermsVector);
-            model.set(GRB.IntParam.Method,0);
+        if (!binary) {
+            GRBModel model = createModel(pli);
+            model.set(GRB.IntParam.Method, 0);
             //model.update();
-            model.write(path + "frb30-15-3(" + counter + ").lp");
+            model.write(path + fileName + ".lp");
+            //  model.relax();
             model.optimize();
             //model.update();
-            model.write(path + "frb30-15-3(" + counter + ").sol");
+            model.write(path + fileName + ".sol");
 
 
-            counter++;
+            int counter = 0;
+
+            //Gomory Cuts routine
+            while (!checkIntegerSolution(model) && counter < iterations) {
+
+                if (verbose) {
+                    for (GRBConstr c : model.getConstrs()) {
+                        System.err.println(c.get(GRB.StringAttr.ConstrName));
+                        System.err.println(c.get(GRB.IntAttr.CBasis));
+                    }
+                }
+
+                System.err.println("-----------------------> " + counter);
+
+                if (verbose) {
+                    System.err.println("A");
+                    Debug.printMatrix(matrix);
+                }
+
+                List<Integer> columnBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 0);
+                List<Integer> columnOutOfBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 1);
+                List<Integer> columnFractionaryBasisIndexes = getBasisOrOutOfBasisIndexes(model, matrix, 2);
+
+                List<GRBVar> basisFractionaryVars = getBasisOrOutOfBasisVars(model, columnBasisIndexes, true);
+                List<GRBVar> outOfBasisVars = getBasisOrOutOfBasisVars(model, columnOutOfBasisIndexes, false);
+
+                matrices = getBasisAndOutOfBasisMatrix(model, matrix, columnBasisIndexes, columnOutOfBasisIndexes);
+
+                //B
+                RealMatrix basisMatrix = matrices[0];
+                if (verbose) {
+                    System.err.println("B");
+                    Debug.printMatrix(basisMatrix);
+                }
+
+                //N
+                RealMatrix outOfBasisMatrix = matrices[1];
+                if (verbose) {
+                    System.err.println("N");
+                    Debug.printMatrix(outOfBasisMatrix);
+                }
+
+                //b
+                RealMatrix constantTermsVector = pli.getConstantTermsVector();
+                if (verbose) {
+                    System.err.println("b");
+                    Debug.printMatrix(constantTermsVector);
+                }
+
+                //B^(-1)
+                //RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
+                RealMatrix basisInverseMatrix = new LUDecomposition(basisMatrix).getSolver().getInverse();
+                if (verbose) {
+                    System.err.println("B^(-1)");
+                    Debug.printMatrix(basisInverseMatrix);
+                }
+
+                //B^(-1)*N
+                RealMatrix basisInverseDotOutOfBasisMatrix = basisInverseMatrix.multiply(outOfBasisMatrix);
+                if (verbose) {
+                    System.err.println("B^(-1)*N");
+                    Debug.printMatrix(basisInverseDotOutOfBasisMatrix);
+                }
+
+                //B^(-1)*b
+                RealMatrix basisInverseDotConstantTermsVector = basisInverseMatrix.multiply(constantTermsVector);
+                if (verbose) {
+                    System.err.println("B^(-1)*b");
+                    Debug.printMatrix(basisInverseDotConstantTermsVector);
+                }
+
+                GRBLinExpr expr = null;
+
+                int lastRow = matrix.getRowDimension();
+                int lastColumn = matrix.getColumnDimension();
+
+                //extend A matrix for the cuts
+                matrix = extendMatrix(matrix, basisFractionaryVars.size(), false);
+
+                //extend vector b
+                constantTermsVector = extendMatrix(constantTermsVector, basisFractionaryVars.size(), true);
+
+                int count = 0;
+
+                //add Gomory cuts
+                for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
+
+                    if (columnFractionaryBasisIndexes.get(i) != -1) {
+
+                        expr = new GRBLinExpr();
+
+                        expr.addTerm(1d, basisFractionaryVars.get(count));
+
+                        matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
+
+                        //out of basis variables terms
+
+                        for (int j = 0; j < outOfBasisVars.size(); j++) {
+
+                            double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+
+                            expr.addTerm(value, outOfBasisVars.get(j));
+
+                            matrix.setEntry(lastRow + count, columnOutOfBasisIndexes.get(j), value);
+
+                        }
+
+                        String slackName = "sg" + (lastRow + count);
+
+                        GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
+
+                        pli.getVariables().add(slackName);
+
+                        expr.addTerm(1d, slack);
+
+                        matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
+
+                        //constant term
+
+                        double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
+
+                        model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
+
+                        constantTermsVector.setEntry(lastRow + count, 0, constant);
+
+                        count++;
+                    }
+
+                }
+
+                pli.setCoefficientMatrix(matrix);
+                pli.setConstantTermsVector(constantTermsVector);
+                model.set(GRB.IntParam.Method, 0);
+                //model.update();
+                model.write(path + fileName + "(" + counter + ").lp");
+                model.optimize();
+                //model.update();
+                model.write(path + fileName + "(" + counter + ").sol");
+
+
+                counter++;
+            }
+
+        } else {
+
+            //-------------------FOR DEBUGGING------------------------------------------------
+            GRBModel binaryModel = createBinaryModel(pli);
+            binaryModel.update();
+            binaryModel.write(fileName + "-BINARY.lp");
+            binaryModel.optimize();
+            binaryModel.update();
+            binaryModel.write(fileName + "-BINARY.sol");
         }
-
-
-        //-------------------FOR DEBUGGING------------------------------------------------
-        /*GRBModel binaryModel = createBinaryModel(pli);
-        binaryModel.update();
-        binaryModel.write("frb30-15-2-BINARY.lp");
-        binaryModel.optimize();
-        binaryModel.update();
-        binaryModel.write("frb30-15-2-BINARY.sol");*/
     }
 
 }
