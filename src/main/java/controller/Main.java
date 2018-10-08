@@ -1,3 +1,7 @@
+package controller;
+
+import GUI.Prova;
+import GUI.ResultPage;
 import gurobi.*;
 import org.apache.commons.math3.linear.LUDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
@@ -14,17 +18,26 @@ public class Main {
     private static final String fileName = "frb30-15-1.mis";
     private static final String path = "C:\\Users\\bino\\IdeaProjects\\amod\\frb30-15-1-files\\";
 
+    //only integer cuts 0
+    //only fractional cuts 1
+    //both integer and fractional cuts 2
+    //single integer cut 3
+    //single fractional cut 4
+    //both single integer and single fractional cut 5
+
     public static void main(String[] args) {
 
-        PLController plController = null;
+        Prova prova = new Prova();
+
+        /*controller.PLController plController = null;
         try {
-            plController = new PLController(numOfVert, verbose);
-            plController.calculate(filePath, fileName, path, 10,  false, false);
+            plController = new controller.PLController(numOfVert, verbose);
+            plController.calculate(filePath, fileName, path, 10,  2, false);
         } catch (GRBException e) {
             e.printStackTrace();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
-        }
+        }*/
     }
 
 

@@ -1,3 +1,7 @@
+package controller;
+
+import entities.Mode;
+import entities.Result;
 import gurobi.*;
 import org.apache.commons.math3.linear.LUDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
@@ -51,7 +55,7 @@ public class PLController {
     public List<GRBVar> createVariables(GRBModel grbModel, List<String> variables) throws GRBException {
         List<GRBVar> list = new ArrayList<GRBVar>();
         for (String v : variables) {
-            list.add(grbModel.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, v));
+            list.add(grbModel.addVar(0.0, 1.0, 0.0, GRB.CONTINUOUS, v));
         }
         return list;
     }
@@ -232,8 +236,169 @@ public class PLController {
         return newMatrix;
     }
 
+    public void addSingleCut(PLI pli, GRBModel model, RealMatrix matrix, RealMatrix constantTermsVector, RealMatrix basisInverseDotOutOfBasisMatrix, RealMatrix basisInverseDotConstantTermsVector, List<GRBVar> basisFractionaryVars, List<GRBVar> outOfBasisVars, List<Integer> columnFractionaryBasisIndexes, List<Integer> columnOutOfBasisIndexes, boolean integerAndFractionary, boolean integerCut) throws GRBException {
+
+        int lastRow = matrix.getRowDimension();
+        int lastColumn = matrix.getColumnDimension();
+
+        int both = 1;
+        if (integerAndFractionary) both = 2;
+
+        //extend A matrix for the cuts
+        matrix = extendMatrix(matrix, both, false);
+
+        //extend vector b
+        constantTermsVector = extendMatrix(constantTermsVector, both, true);
+
+        boolean setup = true;
+        GRBVar var = null;
+        Integer varColumnIndex = null, varIndex = null;
+
+        int count = 0;
+
+        for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
+
+            int index = columnFractionaryBasisIndexes.get(i);
+            if (index != -1) {
+                GRBVar v = basisFractionaryVars.get(count);
+                if (setup) {
+                    var = v;
+                    varIndex = i;
+                    varColumnIndex = index;
+                    setup = false;
+                } else {
+                    if (v.get(GRB.DoubleAttr.X) > var.get(GRB.DoubleAttr.X)) {
+                        var = v;
+                        varIndex = i;
+                        varColumnIndex = index;
+                    }
+                }
+                count++;
+            }
+        }
+
+        count = 0;
+
+        for (int k = 0; k < both; k++) {
+
+            if (integerAndFractionary && k == 0) integerCut = true;
+            else if (integerAndFractionary && k == 1) integerCut = false;
+
+            //add Gomory cut
+            GRBLinExpr expr = new GRBLinExpr();
+
+            if (integerCut) {
+
+                expr.addTerm(1d, var);
+
+                matrix.setEntry(lastRow + count, varColumnIndex, 1d);
+
+            }
+
+            //out of basis variables terms
+
+            for (int j = 0; j < outOfBasisVars.size(); j++) {
+
+                double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(varIndex, j));
+
+                if (!integerCut) {
+                    value = basisInverseDotOutOfBasisMatrix.getEntry(varIndex, j) - value;
+                }
+
+                expr.addTerm(value, outOfBasisVars.get(j));
+
+                matrix.setEntry(lastRow + count, columnOutOfBasisIndexes.get(j), value);
+
+            }
+
+            String slackName = "sg" + (lastRow + count);
+
+            GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
+
+            pli.getVariables().add(slackName);
+
+            if (integerCut) {
+                expr.addTerm(1d, slack);
+
+                matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
+            } else {
+                expr.addTerm(-1d, slack);
+
+                matrix.setEntry(lastRow + count, lastColumn + count, -1.0);
+            }
+
+            //constant term
+
+            double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(varIndex, 0));
+
+            if (!integerCut) {
+                constant = basisInverseDotConstantTermsVector.getEntry(varIndex, 0) - constant;
+            }
+
+            model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
+
+            constantTermsVector.setEntry(lastRow + count, 0, constant);
+
+            count++;
+
+        }
+
+        pli.setCoefficientMatrix(matrix);
+        pli.setConstantTermsVector(constantTermsVector);
+    }
+
     //compute the linear programming problem given the file
-    public void calculate(String filePath, String fileName, String path, int iterations, boolean integerCut, boolean binary) throws FileNotFoundException, GRBException {
+    public Result calculate(String filePath, String fileName, String path, int iterations, Mode mode, boolean binary) throws FileNotFoundException, GRBException {
+
+        Result result = null;
+        List<Long> timeList = new ArrayList<>();
+        int optimal = 0;
+        double[][] data = new double[2][iterations];
+        Long firstTime, lastTime;
+
+        boolean integerCut = false;
+        boolean integerAndFractionary = false;
+        boolean singleCut = false;
+
+        switch (mode) {
+            //only integer cuts
+            case integer:
+                integerCut = true;
+                break;
+
+            //only fractional cuts
+            case fractional:
+                integerCut = false;
+                break;
+
+            //both integer and fractional cuts
+            case integerAndFractional:
+                integerAndFractionary = true;
+                break;
+
+            //single integer cut
+            case singleInteger:
+                singleCut = true;
+                integerCut = true;
+                break;
+
+            //single fractional cut
+            case singleFractional:
+                singleCut = true;
+                integerCut = false;
+                break;
+
+            //both single integer and single fractional cut
+            case singleIntegerAndFractional:
+                singleCut = true;
+                integerAndFractionary = true;
+                break;
+
+            default:
+                return result;
+        }
+
+
         FileImport fileImport = new FileImport(filePath, numOfVert);
 
         //A
@@ -242,20 +407,19 @@ public class PLController {
         RealMatrix[] matrices = null;
         PLI pli = new PLI(matrix, numOfVert);
         if (!binary) {
+
             GRBModel model = createModel(pli);
             model.set(GRB.IntParam.Method, 0);
-            //model.update();
             model.write(path + fileName + ".lp");
-            //  model.relax();
             model.optimize();
-            //model.update();
             model.write(path + fileName + ".sol");
-
 
             int counter = 0;
 
             //Gomory Cuts routine
             while (!checkIntegerSolution(model) && counter < iterations) {
+
+                firstTime = System.currentTimeMillis();
 
                 if (verbose) {
                     for (GRBConstr c : model.getConstrs()) {
@@ -323,85 +487,105 @@ public class PLController {
                     Debug.printMatrix(basisInverseDotConstantTermsVector);
                 }
 
-                GRBLinExpr expr = null;
+                if (singleCut) {
 
-                int lastRow = matrix.getRowDimension();
-                int lastColumn = matrix.getColumnDimension();
+                    addSingleCut(pli, model, matrix, constantTermsVector, basisInverseDotOutOfBasisMatrix, basisInverseDotConstantTermsVector, basisFractionaryVars, outOfBasisVars, columnFractionaryBasisIndexes, columnOutOfBasisIndexes, integerAndFractionary, integerCut);
 
-                //extend A matrix for the cuts
-                matrix = extendMatrix(matrix, basisFractionaryVars.size(), false);
+                } else {
 
-                //extend vector b
-                constantTermsVector = extendMatrix(constantTermsVector, basisFractionaryVars.size(), true);
+                    GRBLinExpr expr = null;
 
-                int count = 0;
+                    int lastRow = matrix.getRowDimension();
+                    int lastColumn = matrix.getColumnDimension();
 
-                //add Gomory cuts
-                for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
+                    int both = 1;
 
-                    if (columnFractionaryBasisIndexes.get(i) != -1) {
+                    if (integerAndFractionary) both = 2;
 
-                        expr = new GRBLinExpr();
 
-                        if (integerCut) {
+                    //extend A matrix for the cuts
+                    matrix = extendMatrix(matrix, both * basisFractionaryVars.size(), false);
 
-                            expr.addTerm(1d, basisFractionaryVars.get(count));
+                    //extend vector b
+                    constantTermsVector = extendMatrix(constantTermsVector, both * basisFractionaryVars.size(), true);
 
-                            matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
+                    int count = 0;
 
-                        }
+                    for (int k = 0; k < both; k++) {
 
-                        //out of basis variables terms
+                        if (integerAndFractionary && k == 0) integerCut = true;
+                        else if (integerAndFractionary && k == 1) integerCut = false;
 
-                        for (int j = 0; j < outOfBasisVars.size(); j++) {
+                        //add Gomory cuts
+                        for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
 
-                            double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+                            if (columnFractionaryBasisIndexes.get(i) != -1) {
 
-                            if (!integerCut) {
-                                value = basisInverseDotOutOfBasisMatrix.getEntry(i, j) - value;
+                                expr = new GRBLinExpr();
+
+                                if (integerCut) {
+
+                                    expr.addTerm(1d, basisFractionaryVars.get(count));
+
+                                    matrix.setEntry(lastRow + count, columnFractionaryBasisIndexes.get(i), 1d);
+
+                                }
+
+                                //out of basis variables terms
+
+                                for (int j = 0; j < outOfBasisVars.size(); j++) {
+
+                                    double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+
+                                    if (!integerCut) {
+                                        value = basisInverseDotOutOfBasisMatrix.getEntry(i, j) - value;
+                                    }
+
+                                    expr.addTerm(value, outOfBasisVars.get(j));
+
+                                    matrix.setEntry(lastRow + count, columnOutOfBasisIndexes.get(j), value);
+
+                                }
+
+                                String slackName = "sg" + (lastRow + count);
+
+                                GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
+
+                                pli.getVariables().add(slackName);
+
+                                if (integerCut) {
+                                    expr.addTerm(1d, slack);
+
+                                    matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
+                                } else {
+                                    expr.addTerm(-1d, slack);
+
+                                    matrix.setEntry(lastRow + count, lastColumn + count, -1.0);
+                                }
+
+                                //constant term
+
+                                double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
+
+                                if (!integerCut) {
+                                    constant = basisInverseDotConstantTermsVector.getEntry(i, 0) - constant;
+                                }
+
+                                model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
+
+                                constantTermsVector.setEntry(lastRow + count, 0, constant);
+
+                                count++;
                             }
 
-                            expr.addTerm(value, outOfBasisVars.get(j));
-
-                            matrix.setEntry(lastRow + count, columnOutOfBasisIndexes.get(j), value);
-
                         }
-
-                        String slackName = "sg" + (lastRow + count);
-
-                        GRBVar slack = model.addVar(0.0, GRB.INFINITY, 0.0, GRB.CONTINUOUS, slackName);
-
-                        pli.getVariables().add(slackName);
-
-                        if(integerCut) {
-                            expr.addTerm(1d, slack);
-
-                            matrix.setEntry(lastRow + count, lastColumn + count, 1.0);
-                        } else {
-                            expr.addTerm(-1d, slack);
-
-                            matrix.setEntry(lastRow + count, lastColumn + count, -1.0);
-                        }
-
-                        //constant term
-
-                        double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
-
-                        if(!integerCut) {
-                            constant = basisInverseDotConstantTermsVector.getEntry(i, 0) - constant;
-                        }
-
-                        model.addConstr(expr, GRB.EQUAL, constant, "g" + (lastRow + count));
-
-                        constantTermsVector.setEntry(lastRow + count, 0, constant);
-
-                        count++;
                     }
-
+                    pli.setCoefficientMatrix(matrix);
+                    pli.setConstantTermsVector(constantTermsVector);
                 }
 
-                pli.setCoefficientMatrix(matrix);
-                pli.setConstantTermsVector(constantTermsVector);
+                matrix = pli.getCoefficientMatrix();
+
                 model.set(GRB.IntParam.Method, 0);
                 //model.update();
                 model.write(path + fileName + "(" + counter + ").lp");
@@ -409,8 +593,14 @@ public class PLController {
                 //model.update();
                 model.write(path + fileName + "(" + counter + ").sol");
 
+                lastTime = System.currentTimeMillis();
+
+                data[0][counter] = counter;
+                data[1][counter] = model.get(GRB.DoubleAttr.ObjVal);
 
                 counter++;
+
+                timeList.add(lastTime - firstTime);
             }
 
         } else {
@@ -422,7 +612,13 @@ public class PLController {
             binaryModel.optimize();
             binaryModel.update();
             binaryModel.write(fileName + "-BINARY.sol");
+            optimal = (int) binaryModel.get(GRB.DoubleAttr.ObjVal);
         }
+
+        result = new Result(timeList, path, data, optimal);
+
+        return result;
+
     }
 
 }
