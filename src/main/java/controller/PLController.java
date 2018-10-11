@@ -244,15 +244,15 @@ public class PLController {
         int both = 1;
         if (integerAndFractionary) both = 2;
 
+        boolean setup = true;
+        GRBVar var = null;
+        Integer varColumnIndex = null, varIndex = null;
+
         //extend A matrix for the cuts
         matrix = extendMatrix(matrix, both, false);
 
         //extend vector b
         constantTermsVector = extendMatrix(constantTermsVector, both, true);
-
-        boolean setup = true;
-        GRBVar var = null;
-        Integer varColumnIndex = null, varIndex = null;
 
         int count = 0;
 
@@ -261,6 +261,15 @@ public class PLController {
             int index = columnFractionaryBasisIndexes.get(i);
             if (index != -1) {
                 GRBVar v = basisFractionaryVars.get(count);
+
+                //check for invalid equations
+                int n = 0;
+                for (int j = 0; j < outOfBasisVars.size(); j++) {
+                    double value = basisInverseDotOutOfBasisMatrix.getEntry(i, j) - Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+                    if (value == 0.0) n++;
+                }
+                if (n == outOfBasisVars.size()) continue;
+
                 if (setup) {
                     var = v;
                     varIndex = i;
@@ -356,6 +365,7 @@ public class PLController {
         double[][] optimal = new double[2][iterations];
         double[][] data = new double[2][iterations];
         Long firstTime, lastTime;
+        int sameValueCount = 0;
 
         boolean integerCut = false;
         boolean integerAndFractionary = false;
@@ -463,14 +473,11 @@ public class PLController {
                 System.err.println("B");
                 Debug.printMatrix(basisMatrix);
             }
-            if(!new LUDecomposition(basisMatrix).getSolver().isNonSingular()) {
-                double[][] data2=changeData(data,counter);
-                double[][] optimal2=changeData(optimal,counter);
-                result = new Result(timeList, path, data2, optimal2);
-                return result;
 
-
-
+            if (!new LUDecomposition(basisMatrix).getSolver().isNonSingular()) {
+                data = changeData(data, counter);
+                optimal = changeData(optimal, counter);
+                break;
             }
 
             //N
@@ -524,12 +531,34 @@ public class PLController {
 
                 if (integerAndFractionary) both = 2;
 
+                //check for invalid equations
+                int ext = both * basisFractionaryVars.size();
+
+                for (int i = 0; i < columnFractionaryBasisIndexes.size(); i++) {
+                    if (columnFractionaryBasisIndexes.get(i) != -1) {
+
+                        int count = 0;
+                        double value = 0.0;
+
+                        //out of basis variables terms
+                        for (int j = 0; j < outOfBasisVars.size(); j++) {
+                            value = basisInverseDotOutOfBasisMatrix.getEntry(i, j) -  Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
+                            if (value == 0.0) count++;
+                        }
+
+                        if (count == outOfBasisVars.size()){
+                            ext = ext - 2;
+                            columnFractionaryBasisIndexes.set(i, -1);
+                        }
+                    }
+
+                }
 
                 //extend A matrix for the cuts
-                matrix = extendMatrix(matrix, both * basisFractionaryVars.size(), false);
+                matrix = extendMatrix(matrix, ext, false);
 
                 //extend vector b
-                constantTermsVector = extendMatrix(constantTermsVector, both * basisFractionaryVars.size(), true);
+                constantTermsVector = extendMatrix(constantTermsVector, ext, true);
 
                 int count = 0;
 
@@ -609,10 +638,8 @@ public class PLController {
             matrix = pli.getCoefficientMatrix();
 
             model.set(GRB.IntParam.Method, 0);
-            //model.update();
             model.write(path + fileName + "(" + counter + ").lp");
             model.optimize();
-            //model.update();
             model.write(path + fileName + "(" + counter + ").sol");
 
             lastTime = System.currentTimeMillis();
@@ -622,6 +649,16 @@ public class PLController {
 
             optimal[0][counter] = counter;
             optimal[1][counter] = opt;
+
+            if (counter > 0) {
+                if (data[1][counter] == data[1][counter-1]) sameValueCount++;
+            }
+
+            if(sameValueCount == 5) {
+                data = changeData(data, counter);
+                optimal = changeData(optimal, counter);
+                break;
+            }
 
             counter++;
 
@@ -635,9 +672,9 @@ public class PLController {
 
     private double[][] changeData(double[][] data, int counter) {
         double[][] data2 = new double[2][counter];
-        for(int j=0;j<counter;j++){
-            data2[0][j]=data[0][j];
-            data2[1][j]=data[1][j];
+        for (int j = 0; j < counter; j++) {
+            data2[0][j] = data[0][j];
+            data2[1][j] = data[1][j];
         }
         return data2;
     }
