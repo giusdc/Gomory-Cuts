@@ -463,6 +463,15 @@ public class PLController {
                 System.err.println("B");
                 Debug.printMatrix(basisMatrix);
             }
+            if(!new LUDecomposition(basisMatrix).getSolver().isNonSingular()) {
+                double[][] data2=changeData(data,counter);
+                double[][] optimal2=changeData(optimal,counter);
+                result = new Result(timeList, path, data2, optimal2);
+                return result;
+
+
+
+            }
 
             //N
             RealMatrix outOfBasisMatrix = matrices[1];
@@ -622,6 +631,15 @@ public class PLController {
         result = new Result(timeList, path, data, optimal);
 
         return result;
+    }
+
+    private double[][] changeData(double[][] data, int counter) {
+        double[][] data2 = new double[2][counter];
+        for(int j=0;j<counter;j++){
+            data2[0][j]=data[0][j];
+            data2[1][j]=data[1][j];
+        }
+        return data2;
     }
 
 }
