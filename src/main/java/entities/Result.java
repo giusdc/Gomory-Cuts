@@ -1,15 +1,17 @@
 package entities;
 
+import lombok.Getter;
+
 import java.util.List;
 
+@Getter
 public class Result {
 
-    private List<Long> times;
+    private List<String> times;
     private String path;
-    private double [][] data;
-    private int optimal;
+    private double [][] data, optimal;
 
-    public Result(List<Long> times, String path, double[][] data, int optimal) {
+    public Result(List<String> times, String path, double[][] data, double[][] optimal) {
         this.times = times;
         this.path = path;
         this.data = data;

@@ -1,13 +1,6 @@
 package controller;
 
-import GUI.Prova;
-import GUI.ResultPage;
-import gurobi.*;
-import org.apache.commons.math3.linear.LUDecomposition;
-import org.apache.commons.math3.linear.MatrixUtils;
-import org.apache.commons.math3.linear.RealMatrix;
-
-import java.io.FileNotFoundException;
+import GUI.MainGUI;
 
 public class Main {
 
@@ -27,7 +20,7 @@ public class Main {
 
     public static void main(String[] args) {
 
-        Prova prova = new Prova();
+        MainGUI mainGUI = new MainGUI();
 
         /*controller.PLController plController = null;
         try {
