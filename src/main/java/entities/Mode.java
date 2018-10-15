@@ -1,5 +1,12 @@
 package entities;
 
+//only integer cuts: 0
+//only fractional cuts: 1
+//both integer and fractional cuts: 2
+//single integer cut: 3
+//single fractional cut: 4
+//both single integer and single fractional cut: 5
+
 public enum Mode {
     integer, fractional, integerAndFractional, singleInteger, singleFractional, singleIntegerAndFractional;
 

@@ -52,8 +52,6 @@ public class GraphGUI {
 
                     Object v1, v2;
                     if (!map.containsKey(firstVertex)) {
-                       /* v1 = graph.insertVertex(parent, String.valueOf(firstVertex), firstVertex, 20 + (firstVertex % 6) * 200, 20 + (firstVertex % 5) * 200, 20,
-                                20); */
                         v1 = graph.insertVertex(parent, String.valueOf(firstVertex), firstVertex, 20 , 20, 20,
                                 20);
                         map.put(firstVertex, v1);
@@ -61,8 +59,6 @@ public class GraphGUI {
                         v1 = map.get(firstVertex);
                     }
                     if (!map.containsKey(secondVertex)) {
-                       /* v2 = graph.insertVertex(parent, String.valueOf(secondVertex), secondVertex, 20 + (secondVertex % 6) * 200, 20 + (secondVertex % 5) * 200,
-                                20, 20);*/
                         v2 = graph.insertVertex(parent, String.valueOf(secondVertex), secondVertex, 20 , 20,
                                 20, 20);
                         map.put(secondVertex, v2);

@@ -112,6 +112,7 @@ public class PLController {
         }
     }
 
+    //check if the solution of the PL is integer or not
     public boolean checkIntegerSolution(GRBModel model) throws GRBException {
         GRBVar[] variables = model.getVars();
         GRBVar var = null;
@@ -127,11 +128,13 @@ public class PLController {
         return true;
     }
 
+    //get list indexes of basis variables or not in basis variables
     public List<Integer> getBasisOrOutOfBasisIndexes(GRBModel model, RealMatrix matrix, int basis) throws GRBException {
         List<Integer> list = new ArrayList<Integer>();
         GRBVar[] variables = model.getVars();
         GRBVar[] varToPrint = new GRBVar[model.getVars().length];
         GRBConstr[] constraints = model.getConstrs();
+        //in basis vars
         if (basis == 0) {
             for (int i = 0; i < variables.length; i++) {
                 if (variables[i].get(GRB.IntAttr.VBasis) == 0) {
@@ -145,6 +148,7 @@ public class PLController {
                     }
                 }
             }
+            //not in basis vars
         } else if (basis == 1) {
             for (int i = 0; i < variables.length; i++) {
                 if (variables[i].get(GRB.IntAttr.VBasis) != 0) {
@@ -152,6 +156,7 @@ public class PLController {
                     varToPrint[i] = variables[i];
                 }
             }
+            //in basis and fraction vars
         } else if (basis == 2) {
             for (int i = 0; i < variables.length; i++) {
                 double value = variables[i].get(GRB.DoubleAttr.X);
@@ -220,6 +225,7 @@ public class PLController {
         return matrices;
     }
 
+    //extend the dimensions of the input matrix (vector) adding n more rows and columns (rows)
     public RealMatrix extendMatrix(RealMatrix matrix, int n, boolean vector) {
         RealMatrix newMatrix = null;
         double[][] oldValues = new double[matrix.getRowDimension()][matrix.getColumnDimension()];
@@ -236,6 +242,7 @@ public class PLController {
         return newMatrix;
     }
 
+    //routine to add only one cut per time
     public void addSingleCut(PLI pli, GRBModel model, RealMatrix matrix, RealMatrix constantTermsVector, RealMatrix basisInverseDotOutOfBasisMatrix, RealMatrix basisInverseDotConstantTermsVector, List<GRBVar> basisFractionaryVars, List<GRBVar> outOfBasisVars, List<Integer> columnFractionaryBasisIndexes, List<Integer> columnOutOfBasisIndexes, boolean integerAndFractionary, boolean integerCut) throws GRBException {
 
         int lastRow = matrix.getRowDimension();
@@ -495,7 +502,6 @@ public class PLController {
             }
 
             //B^(-1)
-            //RealMatrix basisInverseMatrix = MatrixUtils.inverse(basisMatrix);
             RealMatrix basisInverseMatrix = new LUDecomposition(basisMatrix).getSolver().getInverse();
             if (verbose) {
                 System.err.println("B^(-1)");
@@ -583,7 +589,6 @@ public class PLController {
                             }
 
                             //out of basis variables terms
-
                             for (int j = 0; j < outOfBasisVars.size(); j++) {
 
                                 double value = Math.floor(basisInverseDotOutOfBasisMatrix.getEntry(i, j));
@@ -615,7 +620,6 @@ public class PLController {
                             }
 
                             //constant term
-
                             double constant = Math.floor(basisInverseDotConstantTermsVector.getEntry(i, 0));
 
                             if (!integerCut) {
@@ -637,6 +641,7 @@ public class PLController {
 
             matrix = pli.getCoefficientMatrix();
 
+            //problem solution
             model.set(GRB.IntParam.Method, 0);
             model.write(path + fileName + "(" + counter + ").lp");
             model.optimize();
@@ -644,6 +649,7 @@ public class PLController {
 
             lastTime = System.currentTimeMillis();
 
+            //populate return object
             data[0][counter] = counter;
             data[1][counter] = model.get(GRB.DoubleAttr.ObjVal);
 

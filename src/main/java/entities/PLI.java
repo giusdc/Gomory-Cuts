@@ -18,23 +18,23 @@ import java.util.List;
 @AllArgsConstructor
 public class PLI {
 
-    private RealMatrix coefficientMatrix, constantTermsVector;
+    //A
+    private RealMatrix coefficientMatrix,
+    //b
+            constantTermsVector;
+    //variable names
     private List<String> variables;
-    private HashMap<String, Integer> varPosition;
 
     public PLI(RealMatrix coefficientMatrix, int numOfVert) {
-        this.varPosition = new HashMap<String, Integer>();
         this.coefficientMatrix = coefficientMatrix;
         int rows = this.coefficientMatrix.getRowDimension();
         this.constantTermsVector = MatrixUtils.createRealMatrix(rows, 1);
         this.variables = new ArrayList<String>();
         for (int i = 0; i < numOfVert; i++) {
             variables.add("x" + i);
-            this.varPosition.put("x" + i, i);
         }
         for (int i = 0; i < rows; i++) {
             variables.add("s" + i);
-            this.varPosition.put("s" + i, numOfVert + i);
             this.constantTermsVector.setEntry(i, 0, 1.0);
         }
     }
