@@ -71,6 +71,7 @@ public class MainGUI {
                     plController = new PLController(numOfVert, false);
                     result = plController.calculate(filePath, fileName, directoryPath, iterations, mode, false);
                 } catch (GRBException e) {
+                    System.err.println("a");
                     e.printStackTrace();
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
