@@ -369,8 +369,8 @@ public class PLController {
         Result result = null;
         List<String> timeList = new ArrayList<>();
         int opt = 0;
-        double[][] optimal = new double[2][iterations];
-        double[][] data = new double[2][iterations];
+        double[][] optimal = new double[2][iterations+1];
+        double[][] data = new double[2][iterations+1];
         Long firstTime, lastTime;
         int sameValueCount = 0;
 
@@ -445,8 +445,16 @@ public class PLController {
 
         int counter = 0;
 
+        data[0][counter] = counter;
+        data[1][counter] = model.get(GRB.DoubleAttr.ObjVal);
+
+        optimal[0][counter] = counter;
+        optimal[1][counter] = opt;
+
+       counter++;
+
         //Gomory Cuts routine
-        while (!checkIntegerSolution(model) && counter < iterations) {
+        while (!checkIntegerSolution(model) && counter < iterations + 1) {
 
             firstTime = System.currentTimeMillis();
 
@@ -652,12 +660,12 @@ public class PLController {
             //populate return object
             data[0][counter] = counter;
             data[1][counter] = model.get(GRB.DoubleAttr.ObjVal);
-
             optimal[0][counter] = counter;
             optimal[1][counter] = opt;
 
             if (counter > 0) {
-                if (data[1][counter] == data[1][counter-1]) sameValueCount++;
+                if (Math.floor(data[1][counter]) == Math.floor(data[1][counter-1])) sameValueCount++;
+                else sameValueCount = 0;
             }
 
             if(sameValueCount == 5) {
@@ -666,9 +674,14 @@ public class PLController {
                 break;
             }
 
-            counter++;
-
             timeList.add("rep: " + counter + " time: " + (lastTime - firstTime) + "ms");
+
+            counter++;
+        }
+
+        if(counter < iterations) {
+            data = changeData(data, counter);
+            optimal = changeData(optimal, counter);
         }
 
         result = new Result(timeList, path, data, optimal);
