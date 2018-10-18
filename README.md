@@ -19,7 +19,7 @@ Sono selezionabili 6 tipi di taglio:
 
 È inseribile il numero di iterazioni dell'algoritmo. Nel caso delle prime tre modalità, l'aumento delle
 dimensioni non è lineare, al contrario delle ultime tre, per questo si raccomanda di non esagerare
-col valore del relativo campo. È presente, comunque, un controllo che blocca il computo se la soluzione 
+col valore (circa 5) del relativo campo. È presente, comunque, un controllo che blocca il computo se la soluzione 
 non migliora nella parta intera del suo valore.
 
 Applicando i tagli al solo problema di minimum weighted vertex cover, è possibile anche visualizzare il 
