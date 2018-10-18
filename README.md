@@ -2,9 +2,10 @@
 ##Implemetazione dei tagli di Gomory al problema del minimum weighted vertex cover
 ###(Di Cosmo - Mastropietro - Nedia)
 
-Il progetto Java prevede una interfaccia grafica che permette la sottomissione delle istanze di test 
-dell'algoritmo nel formato presente nel file "frb30-15-mis". All'interno vi è anche un'ulteriore, semplice,
-istanza di prova usata per testare il sistema realizzato. Ulteriormente, c'è la possibilità di 
+Il progetto Java (necessita di una licenza di Gurobi valida registrata nella macchina) 
+prevede una interfaccia grafica che permette la sottomissione delle istanze di test 
+dell'algoritmo nel formato presente nella directory "frb30-15-mis". All'interno vi è anche un'ulteriore, 
+semplice, istanza di prova usata per testare il sistema realizzato. Ulteriormente, c'è la possibilità di 
 inserire una directory in cui vengono scritti i file di formulazione e soluzione dei PL
 scritti da Gurobi. 
 
